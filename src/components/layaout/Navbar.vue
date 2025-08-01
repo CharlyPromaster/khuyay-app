@@ -1,0 +1,201 @@
+<template>
+  <nav
+    class="navbar position-fixed top-0 start-0 end-0 bg-white shadow-sm py-2"
+    style="height: 60px; z-index: 1040"
+  >
+    <div
+      class="container-fluid d-flex align-items-center justify-content-between"
+    >
+      <!-- IZQUIERDA -->
+      <div class="d-flex align-items-center gap-2">
+        <button
+          class="btn btn-outline-secondary d-md-none btn-sm"
+          @click="$emit('toggle-sidebar')"
+        >
+          <i class="fas fa-bars"></i>
+        </button>
+        <router-link to="/" class="navbar-brand fs-4 m-0">
+          <span class="text-purple">KHUYAY</span>
+          <span class="text-pink ms-1">DASH</span>
+        </router-link>
+      </div>
+
+      <!-- CENTRO -->
+      <div class="flex-grow-1 mx-3">
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="🔍 Buscar productos o clientes..."
+          class="form-control custom-search"
+        />
+      </div>
+
+      <!-- DERECHA -->
+      <div class="d-flex align-items-center gap-2">
+        <button
+          class="btn btn-sm btn-outline-purple"
+          @click="mostrarProveedores = true"
+        >
+          <i class="fas fa-box-open me-1"></i> Proveedores
+        </button>
+        <router-link
+          to="/venta"
+          class="btn btn-sm btn-outline-pink inline-flex items-center"
+        >
+          <i class="fas fa-cash-register me-1"></i> Venta
+        </router-link>
+
+        <router-link to="/gasto" class="btn btn-sm btn-outline-dark">
+          <i class="fas fa-money-bill me-1"></i> Gasto
+        </router-link>
+        <span class="d-none d-md-inline ms-2">
+          <i class="fas fa-clock"></i> {{ horaActual }}
+        </span>
+      </div>
+    </div>
+  </nav>
+  <ProveedoresModal
+    :visible="mostrarProveedores"
+    @close="mostrarProveedores = false"
+  />
+</template>
+
+<script setup>
+import { ref, onMounted, onUnmounted, watch } from "vue";
+import ProveedoresModal from "../ProveedoresModal.vue";
+import { useRoute } from 'vue-router';
+
+const route = useRoute()
+
+watch(route, () => {
+  mostrarProveedores.value = false
+})
+
+const mostrarProveedores = ref(false);
+const searchQuery = ref("");
+const horaActual = ref("");
+
+function actualizarHora() {
+  const ahora = new Date();
+  const opciones = { hour: "2-digit", minute: "2-digit", second: "2-digit" };
+  const fecha = ahora.toLocaleDateString();
+  const hora = ahora.toLocaleTimeString([], opciones);
+  horaActual.value = `${fecha} - ${hora}`;
+}
+let intervalo;
+
+onMounted(() => {
+  actualizarHora();
+  intervalo = setInterval(actualizarHora, 1000);
+});
+
+const nuevoProducto = () => {};
+const nuevaVenta = () => {};
+const nuevoGasto = () => {};
+
+onUnmounted(() => {
+  clearInterval(intervalo);
+});
+</script>
+
+<style scoped>
+.navbar-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding-left: 15rem !important;
+}
+
+/* Estilo del buscador */
+.custom-search {
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.9rem;
+  height: 38px;
+  width: 100%;
+  max-width: 400px;
+}
+
+/* Logo con color */
+.text-purple {
+  color: #6f42c1;
+  font-weight: bold;
+}
+.text-pink {
+  color: #e83e8c;
+  font-weight: bold;
+}
+
+/* Botones de acción con outline colorido */
+.btn-outline-purple {
+  border: 1px solid #6f42c1;
+  color: #6f42c1;
+  transition: 0.2s;
+}
+.btn-outline-purple:hover {
+  background-color: #6f42c1;
+  color: #fff;
+}
+
+.btn-outline-pink {
+  border: 1px solid #e83e8c;
+  color: #e83e8c;
+  transition: 0.2s;
+}
+.btn-outline-pink:hover {
+  background-color: #e83e8c;
+  color: #fff;
+}
+
+.btn-outline-dark {
+  border: 1px solid #343a40;
+  color: #343a40;
+  transition: 0.2s;
+}
+.btn-outline-dark:hover {
+  background-color: #343a40;
+  color: #fff;
+}
+.hora-actual {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #4b4b4b;
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  background-color: #f5f3ff;
+  border: 1px solid #e0d7ff;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.3s ease;
+}
+
+.hora-actual i {
+  color: #a16eff;
+  font-size: 1.1rem;
+}
+
+.hora-actual:hover {
+  background-color: #ede4ff;
+  border-color: #c5aaff;
+  color: #333;
+}
+
+/* Responsive */
+@media (max-width: 767px) {
+  .navbar-inner {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.5rem;
+  }
+
+  .custom-search {
+    order: 3;
+    width: 100%;
+    max-width: 100%;
+    margin-top: 0.5rem;
+  }
+}
+</style>
