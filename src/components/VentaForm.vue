@@ -119,11 +119,19 @@
           >
           <input
             type="number"
-            min="1"
+            :min="1"
+            :max="obtenerStockDisponible(p.producto_id)"
             v-model="p.cantidad"
+            :disabled="obtenerStockDisponible(p.producto_id) === 0"
             class="w-full px-4 py-2 rounded-xl border border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
         </div>
+        <p
+          v-if="p.producto_id && obtenerStockDisponible(p.producto_id) === 0"
+          class="text-red-600 text-sm mt-1"
+        >
+          Sin stock disponible
+        </p>
 
         <div>
           <label class="block text-sm font-semibold text-purple-700 mb-1"
@@ -176,6 +184,12 @@ import { ref, onMounted } from "vue";
 import { supabase } from "../supabase";
 
 const productosDB = ref([]);
+
+const obtenerStockDisponible = (producto_id) => {
+  if (!producto_id) return 0;
+  const p = productosDB.value.find((prod) => prod.id === producto_id);
+  return p?.stock ?? 0;
+};
 
 const venta = ref({
   fecha: new Date().toLocaleDateString("fr-CA"),
@@ -378,7 +392,7 @@ const guardarVenta = async () => {
 onMounted(async () => {
   const { data, error } = await supabase
     .from("productos")
-    .select("id, nombre, precio_venta");
+    .select("id, nombre, precio_venta, stock");
 
   if (error) {
     console.error("Error al cargar productos:", error);

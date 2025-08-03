@@ -11,11 +11,17 @@
           <tr>
             <th class="px-4 py-3 text-left text-sm font-semibold">Fecha</th>
             <th class="px-4 py-3 text-left text-sm font-semibold">Cliente</th>
-            <th class="px-4 py-3 text-left text-sm font-semibold">Método Pago</th>
+            <th class="px-4 py-3 text-left text-sm font-semibold">
+              Método Pago
+            </th>
             <th class="px-4 py-3 text-right text-sm font-semibold">Total</th>
             <th class="px-4 py-3 text-center text-sm font-semibold">Estado</th>
-            <th class="px-4 py-3 text-left text-sm font-semibold">Método Pago Final</th>
-            <th class="px-4 py-3 text-center text-sm font-semibold">Acciones</th>
+            <th class="px-4 py-3 text-left text-sm font-semibold">
+              Método Pago Final
+            </th>
+            <th class="px-4 py-3 text-center text-sm font-semibold">
+              Acciones
+            </th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100 bg-white">
@@ -24,7 +30,9 @@
             <td class="px-4 py-3">{{ v.nombre_cliente || "—" }}</td>
             <td class="px-4 py-3 capitalize">
               <span
-                :class="v.metodo_pago === 'fiado' ? 'text-red-600 font-semibold' : ''"
+                :class="
+                  v.metodo_pago === 'fiado' ? 'text-red-600 font-semibold' : ''
+                "
               >
                 {{ v.metodo_pago }}
               </span>
@@ -34,20 +42,22 @@
             </td>
             <td class="px-4 py-3 text-center">
               <span
-                :class="v.estado === 'pagado'
-                  ? 'text-green-600 font-bold'
-                  : 'text-red-600 font-bold'"
+                :class="
+                  v.estado === 'pagado'
+                    ? 'text-green-600 font-bold'
+                    : 'text-red-600 font-bold'
+                "
               >
                 {{ v.estado || "—" }}
               </span>
             </td>
-                          <!-- ✅ MÉTODO PAGO FINAL -->
-  <td class="px-4 py-2">
-    <span v-if="v.metodo_pago === 'fiado' && v.estado === 'pagado'">
-      {{ v.metodo_pago_final }}
-    </span>
-    <span v-else>—</span>
-  </td>
+            <!-- ✅ MÉTODO PAGO FINAL -->
+            <td class="px-4 py-2">
+              <span v-if="v.metodo_pago === 'fiado' && v.estado === 'pagado'">
+                {{ v.metodo_pago_final }}
+              </span>
+              <span v-else>—</span>
+            </td>
             <td class="px-4 py-3 text-center">
               <button
                 class="btn btn-sm btn-outline-purple mr-2"
@@ -55,15 +65,21 @@
               >
                 <i class="fas fa-eye mr-1"></i> Ver
               </button>
-<button
-  v-if="v.metodo_pago === 'fiado' && v.estado === 'pendiente'"
-  class="inline-flex items-center gap-2 px-3 py-1.5 rounded text-white bg-green-500 hover:bg-green-600 text-sm font-medium shadow"
-  @click="marcarComoPagado(v)"
->
-  <i class="fas fa-money-bill-wave text-white text-base"></i>
-  <span>Marcar como pagado</span>
-</button>
-
+              <button
+                v-if="v.metodo_pago === 'fiado' && v.estado === 'pendiente'"
+                class="inline-flex items-center gap-2 px-3 py-1.5 rounded text-white bg-green-500 hover:bg-green-600 text-sm font-medium shadow"
+                @click="marcarComoPagado(v)"
+              >
+                <i class="fas fa-money-bill-wave text-white text-base"></i>
+                <span>Marcar como pagado</span>
+              </button>
+              <button
+                class="inline-flex items-center gap-2 px-3 py-1.5 rounded text-white bg-red-500 hover:bg-red-600 text-sm font-medium shadow"
+                @click="eliminarVenta(v)"
+              >
+                <i class="fas fa-trash-alt text-white text-base"></i>
+                <span>Eliminar</span>
+              </button>
             </td>
           </tr>
         </tbody>
@@ -88,13 +104,13 @@ import { supabase } from "../supabase";
 import DetalleVentaModal from "../components/DetalleVentaModal.vue";
 
 const formatearFecha = (fecha) => {
-  const f = new Date(fecha)
-  return f.toLocaleDateString('es-PE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  })
-}
+  const f = new Date(fecha);
+  return f.toLocaleDateString("es-PE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+};
 
 const mostrarModal = ref(false);
 const ventaSeleccionada = ref(null);
@@ -161,4 +177,38 @@ const marcarComoPagado = async (venta) => {
     await cargarVentas();
   }
 };
+
+const eliminarVenta = async (venta) => {
+  const confirmacion = confirm(
+    `¿Estás seguro de que deseas eliminar la venta del ${formatearFecha(venta.fecha)}?`
+  );
+  if (!confirmacion) return;
+
+  // Primero elimina los detalles de la venta para evitar conflictos de clave foránea
+  const { error: detalleError } = await supabase
+    .from("detalles_venta")
+    .delete()
+    .eq("venta_id", venta.id);
+
+  if (detalleError) {
+    console.error("Error al eliminar detalles de venta:", detalleError);
+    alert("No se pudieron eliminar los detalles de la venta.");
+    return;
+  }
+
+  // Luego elimina la venta
+  const { error: ventaError } = await supabase
+    .from("ventas")
+    .delete()
+    .eq("id", venta.id);
+
+  if (ventaError) {
+    console.error("Error al eliminar venta:", ventaError);
+    alert("No se pudo eliminar la venta.");
+  } else {
+    alert("Venta eliminada exitosamente ✅");
+    await cargarVentas();
+  }
+};
+
 </script>
