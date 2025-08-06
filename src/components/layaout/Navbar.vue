@@ -85,6 +85,7 @@
 </template>
 
 <script setup>
+defineEmits(['toggleSidebar'])
 import { ref, onMounted, onUnmounted, watch } from "vue";
 import { supabase } from "../../supabase";
 import ProveedoresModal from "../ProveedoresModal.vue";
