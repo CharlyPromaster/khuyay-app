@@ -198,13 +198,16 @@ const subcategoriasFiltradas = computed(() =>
 const agregarProducto = () => {
   productosComprados.value.push({
     nombre: "",
-    categoria_id: "",
+    categoria_id: null,
     es_con_variante: false,
     cantidad: 1,
     precio: 0,
-    variantes: [], // solo usado si es_con_variante = true
+    variantes: [], // Solo si es_con_variante = true
+    talla: "",     // Para productos simples (si aplica)
+    color: "",     // Para productos simples (si aplica)
   });
 };
+
 
 const quitarProducto = (index) => {
   productosComprados.value.splice(index, 1);
@@ -467,9 +470,4 @@ onMounted(() => {
   obtenerCategorias();
   agregarProducto();
 });
-watch(productosComprados, () => {
-  // Forzamos el recalculo del total si cambia algo en productos o sus variantes
-  totalCalculado.value // esto fuerza la reactividad
-}, { deep: true })
-
 </script>
