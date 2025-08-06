@@ -258,14 +258,26 @@ const cerrarModal = () => {
 const guardarCambios = async () => {
   const { id, ...datos } = productoSeleccionado.value;
 
-  const { error } = await supabase.from("productos").update(datos).eq("id", id);
+  // Prevenir campos problemáticos (como undefined o null donde no deberían)
+  const datosLimpios = {
+    nombre: datos.nombre?.trim() || "",
+    categoria_id: datos.categoria_id || null,
+    precio_venta: datos.precio_venta !== undefined ? Number(datos.precio_venta) : 0,
+    precio_compra: datos.precio_compra !== undefined ? Number(datos.precio_compra) : 0,
+    stock: datos.stock !== undefined ? Number(datos.stock) : 0,
+    es_con_variante: !!datos.es_con_variante,
+  };
+
+  const { error } = await supabase.from("productos").update(datosLimpios).eq("id", id);
 
   if (!error) {
     const index = productos.value.findIndex((p) => p.id === id);
-    if (index !== -1) productos.value[index] = { id, ...datos };
+    if (index !== -1) productos.value[index] = { id, ...datosLimpios };
     cerrarModal();
   } else {
     alert("Error al guardar");
+    console.error("❌ Error al actualizar producto:", error);
   }
 };
+
 </script>
