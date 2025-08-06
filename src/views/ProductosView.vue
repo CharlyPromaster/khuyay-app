@@ -21,6 +21,10 @@
         </option>
       </select>
     </div>
+<div class="flex items-center gap-2 mb-4">
+  <input type="checkbox" id="stockBajo" v-model="mostrarStockBajo" />
+  <label for="stockBajo" class="text-sm select-none">Mostrar solo productos con stock bajo (menos de 5)</label>
+</div>
 
     <!-- Tabla de productos -->
     <div class="overflow-x-auto">
@@ -42,23 +46,59 @@
             class="border-b hover:bg-gray-50"
           >
             <td class="p-3">{{ prod.nombre }}</td>
-            <td class="p-3">S/ {{ prod.precio_venta }}</td>
-            <td class="p-3">S/ {{ prod.precio_compra }}</td>
-            <td class="p-3">{{ prod.stock }}</td>
-            <td class="p-3">{{ nombreCategoria(prod.categoria_id) }}</td>
             <td class="p-3">
-              <button
-                @click="abrirModal(prod)"
-                class="text-sm text-purple-600 hover:underline"
-              >
-                Editar
-              </button>
+              S/
+              {{
+                prod.es_con_variante && prod.variantes_producto.length
+                  ? prod.variantes_producto[0].precio_venta ?? 0
+                  : prod.precio_venta
+              }}
             </td>
+            <td class="p-3">
+              S/
+              {{
+                prod.es_con_variante && prod.variantes_producto.length
+                  ? prod.variantes_producto[0].precio_compra
+                  : prod.precio_compra
+              }}
+            </td>
+
+            <td class="p-3">
+              {{
+                prod.es_con_variante && prod.variantes_producto.length
+                  ? prod.variantes_producto.reduce((acc, v) => acc + v.stock, 0)
+                  : prod.stock
+              }}
+            </td>
+
+            <td class="p-3">{{ nombreCategoria(prod.categoria_id) }}</td>
+<td class="p-3">
+  <div class="flex flex-col space-y-1">
+    <button
+      @click="abrirModal(prod)"
+      class="text-sm text-purple-600 hover:underline"
+    >
+      Editar
+    </button>
+
+    <!-- Solo si tiene variantes -->
+    <router-link
+      v-if="prod.es_con_variante"
+      :to="`/productos/${prod.id}/variantes`"
+    >
+      <button class="text-sm text-purple-600 underline">
+        Editar variantes
+      </button>
+    </router-link>
+  </div>
+</td>
+
           </tr>
         </tbody>
       </table>
     </div>
 
+    <!-- Modal de edición -->
     <!-- Modal de edición -->
     <div
       v-if="modalVisible"
@@ -75,32 +115,45 @@
               class="border rounded px-3 py-2 w-full"
             />
           </div>
-          <div class="mb-2">
-            <label class="block text-sm font-medium">Precio venta</label>
-            <input
-              type="number"
-              step="0.01"
-              v-model.number="productoSeleccionado.precio_venta"
-              class="border rounded px-3 py-2 w-full"
-            />
-          </div>
-          <div class="mb-2">
-            <label class="block text-sm font-medium">Precio compra</label>
-            <input
-              type="number"
-              step="0.01"
-              v-model.number="productoSeleccionado.precio_compra"
-              class="border rounded px-3 py-2 w-full"
-            />
-          </div>
-          <div class="mb-2">
-            <label class="block text-sm font-medium">Stock</label>
-            <input
-              type="number"
-              v-model.number="productoSeleccionado.stock"
-              class="border rounded px-3 py-2 w-full"
-            />
-          </div>
+
+          <!-- Mostrar solo si NO es variante -->
+          <template v-if="!productoSeleccionado.es_con_variante">
+            <div class="mb-2">
+              <label class="block text-sm font-medium">Precio venta</label>
+              <input
+                type="number"
+                step="0.01"
+                v-model.number="productoSeleccionado.precio_venta"
+                class="border rounded px-3 py-2 w-full"
+              />
+            </div>
+            <div class="mb-2">
+              <label class="block text-sm font-medium">Precio compra</label>
+              <input
+                type="number"
+                step="0.01"
+                v-model.number="productoSeleccionado.precio_compra"
+                class="border rounded px-3 py-2 w-full"
+              />
+            </div>
+            <div class="mb-2">
+              <label class="block text-sm font-medium">Stock</label>
+              <input
+                type="number"
+                v-model.number="productoSeleccionado.stock"
+                class="border rounded px-3 py-2 w-full"
+              />
+            </div>
+          </template>
+
+          <!-- Mostrar mensaje si tiene variantes -->
+          <template v-else>
+            <div class="text-sm text-gray-600 italic mb-4">
+              Este producto tiene variantes (como talla y color). Para editar
+              sus precios o stock, ve a la sección de variantes.
+            </div>
+          </template>
+
           <div class="mb-4">
             <label class="block text-sm font-medium">Categoría</label>
             <select
@@ -144,6 +197,7 @@ const search = ref("");
 const categoriaSeleccionada = ref("");
 const modalVisible = ref(false);
 const productoSeleccionado = ref(null);
+const mostrarStockBajo = ref(false);
 
 onMounted(async () => {
   await cargarProductos();
@@ -151,9 +205,34 @@ onMounted(async () => {
 });
 
 const cargarProductos = async () => {
-  const { data, error } = await supabase.from("productos").select("*");
-  if (!error) productos.value = data;
+  const { data, error } = await supabase.from("productos").select(`
+    *,
+    variantes_producto:variantes_producto(precio_compra, stock, talla, color)
+  `);
+
+  if (error) {
+    console.error("❌ Error cargando productos:", error.message);
+  }
+
+  if (data) {
+    productos.value = data;
+  }
 };
+const productosFiltrados = computed(() => {
+  return productos.value.filter((p) => {
+    const porNombre = p.nombre.toLowerCase().includes(search.value.toLowerCase());
+    const porCategoria = !categoriaSeleccionada.value || p.categoria_id == categoriaSeleccionada.value;
+
+    // Calcular stock total (sumar variantes o stock simple)
+    const stockTotal = p.es_con_variante && p.variantes_producto.length
+      ? p.variantes_producto.reduce((acc, v) => acc + v.stock, 0)
+      : p.stock;
+
+    const cumpleStockBajo = mostrarStockBajo.value ? stockTotal < 5 : true;
+
+    return porNombre && porCategoria && cumpleStockBajo;
+  });
+});
 
 const cargarCategorias = async () => {
   const { data, error } = await supabase.from("categorias").select("*");
@@ -165,17 +244,6 @@ const nombreCategoria = (id) => {
   return cat ? cat.nombre : "—";
 };
 
-const productosFiltrados = computed(() => {
-  return productos.value.filter((p) => {
-    const porNombre = p.nombre
-      .toLowerCase()
-      .includes(search.value.toLowerCase());
-    const porCategoria =
-      !categoriaSeleccionada.value ||
-      p.categoria_id == categoriaSeleccionada.value;
-    return porNombre && porCategoria;
-  });
-});
 
 const abrirModal = (producto) => {
   productoSeleccionado.value = { ...producto }; // clonar

@@ -15,6 +15,8 @@
             <tr>
               <th class="p-2 border">Producto</th>
               <th class="p-2 border">Cantidad</th>
+              <th class="p-2 border">Talla</th>
+              <th class="p-2 border">Color</th>
               <th class="p-2 border">Precio Unitario</th>
               <th class="p-2 border">Total</th>
               <th class="p-2 border">Acciones</th>
@@ -26,8 +28,14 @@
                 {{ detalle.productos?.nombre || "Sin nombre" }}
               </td>
               <td class="p-2 border">{{ detalle.cantidad }}</td>
-              <td class="p-2 border">S/ {{ detalle.precio_compra.toFixed(2) }}</td>
-              <td class="p-2 border">S/ {{ (detalle.cantidad * detalle.precio_compra).toFixed(2) }}</td>
+              <td class="p-2 border">{{ detalle.talla || "-" }}</td>
+              <td class="p-2 border">{{ detalle.color || "-" }}</td>
+              <td class="p-2 border">
+                S/ {{ detalle.precio_compra.toFixed(2) }}
+              </td>
+              <td class="p-2 border">
+                S/ {{ (detalle.cantidad * detalle.precio_compra).toFixed(2) }}
+              </td>
               <td class="p-2 border text-center">
                 <button
                   @click="$emit('editar', detalle)"
@@ -75,13 +83,17 @@ watch(
 
     const { data, error } = await supabase
       .from("detalle_compras")
-      .select(`
-        id,
-        cantidad,
-        precio_compra,
-        producto_id,
-        productos (nombre)
-      `)
+      .select(
+        `
+    id,
+    cantidad,
+    precio_compra,
+    producto_id,
+    talla,
+    color,
+    productos (nombre)
+  `
+      )
       .eq("compra_id", nuevoId);
 
     if (error) {

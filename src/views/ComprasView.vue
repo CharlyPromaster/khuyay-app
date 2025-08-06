@@ -86,7 +86,7 @@ const obtenerCompras = async () => {
       total,
       proveedor_id,
       proveedores(nombre),
-      detalle_compras(productos(nombre))
+      detalle_compras(talla, color, productos(nombre))
     `
     )
     .order("fecha", { ascending: false });
@@ -103,7 +103,13 @@ const obtenerCompras = async () => {
     total: compra.total,
     nombre_proveedor: compra.proveedores?.nombre || "Desconocido",
     productos: compra.detalle_compras
-      .map((dc) => dc.productos?.nombre || "¿?")
+      .map((dc) => {
+        const nombre = dc.productos?.nombre || "¿?";
+        const talla = dc.talla ? ` - Talla ${dc.talla}` : "";
+        const color = dc.color ? ` - Color ${dc.color}` : "";
+        const precio = dc.precio_compra ? ` - S/ ${dc.precio_compra}` : "";
+        return `${nombre}${talla}${color}${precio}`;
+      })
       .join(", "),
   }));
 

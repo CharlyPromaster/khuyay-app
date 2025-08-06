@@ -45,12 +45,30 @@
           <label class="block text-sm font-semibold text-purple-700 mb-1"
             >Nombre *</label
           >
-          <input
-            type="text"
-            v-model="cliente.nombre"
-            class="w-full px-4 py-2 rounded-xl border border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
+  <input
+    type="text"
+    v-model="cliente.nombre"
+    @input="buscarClientes"
+    @focus="mostrarSugerenciasCliente = clientesSugeridos.length > 0"
+    @blur="setTimeout(() => mostrarSugerenciasCliente = false, 150)"
+    class="w-full px-4 py-2 rounded-xl border border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
+    autocomplete="off"
+  />
+  <ul
+    v-if="mostrarSugerenciasCliente"
+    class="absolute z-10 bg-white border border-purple-300 w-full mt-1 rounded-lg shadow max-h-40 overflow-auto"
+  >
+    <li
+      v-for="c in clientesSugeridos"
+      :key="c.id"
+      class="px-3 py-2 hover:bg-pink-100 cursor-pointer text-sm"
+      @click="seleccionarCliente(c)"
+    >
+      {{ c.nombre }} - {{ c.telefono || 'Sin teléfono' }}
+    </li>
+  </ul>
         </div>
+
         <div>
           <label class="block text-sm font-semibold text-purple-700 mb-1"
             >Teléfono</label
@@ -112,27 +130,48 @@
             </li>
           </ul>
         </div>
+        <!-- SELECT TALLA -->
+        <label class="text-sm">Talla</label>
+        <select v-model="p.talla" class="border px-2 py-1 rounded w-full">
+          <option disabled value="">Selecciona talla</option>
+          <option
+            v-for="v in [...new Set((p.variantes || []).map((v) => v.talla))]"
+            :key="v"
+            :value="v"
+          >
+            {{ v }}
+          </option>
+        </select>
+
+        <!-- SELECT COLOR (FILTRADO POR TALLA) -->
+        <label class="text-sm">Color</label>
+        <select v-model="p.color" class="border px-2 py-1 rounded w-full">
+          <option disabled value="">Selecciona color</option>
+          <option
+            v-for="color in obtenerColoresPorTalla(index)"
+            :key="color"
+            :value="color"
+          >
+            {{ color }}
+          </option>
+        </select>
 
         <div>
-          <label class="block text-sm font-semibold text-purple-700 mb-1"
-            >Cantidad</label
-          >
+          <label class="block text-sm font-semibold text-purple-700 mb-1">
+            Cantidad
+          </label>
           <input
             type="number"
             :min="1"
-            :max="obtenerStockDisponible(p.producto_id)"
+            :max="p.stockDisponible ?? 0"
             v-model="p.cantidad"
-            :disabled="obtenerStockDisponible(p.producto_id) === 0"
+            :disabled="p.stockDisponible === 0"
             class="w-full px-4 py-2 rounded-xl border border-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
         </div>
-        <p
-          v-if="p.producto_id && obtenerStockDisponible(p.producto_id) === 0"
-          class="text-red-600 text-sm mt-1"
-        >
+        <p v-if="p.stockDisponible === 0" class="text-red-600 text-sm mt-1">
           Sin stock disponible
         </p>
-
         <div>
           <label class="block text-sm font-semibold text-purple-700 mb-1"
             >Precio</label
@@ -180,10 +219,97 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, watch } from "vue";
 import { supabase } from "../supabase";
 
 const productosDB = ref([]);
+const productos = ref([]);
+const variantes = ref([]);
+const clientesSugeridos = ref([]);
+const mostrarSugerenciasCliente = ref(false);
+
+// Actualiza stockDisponible al cambiar talla o color
+watch(
+  productos,
+  (nuevosProductos) => {
+    nuevosProductos.forEach((p, index) => {
+      if (!p.es_con_variante || !p.talla || !p.color) {
+        productos.value[index].stockDisponible = obtenerStockDisponible(p.producto_id);
+        productos.value[index].precio = p.precio ?? 0; // precio de productos
+        return;
+      }
+
+      const variante = p.variantes?.find(
+        (v) => v.talla === p.talla && v.color === p.color
+      );
+
+      productos.value[index].stockDisponible = variante?.stock ?? 0;
+      productos.value[index].precio = variante?.precio_venta ?? 0;
+    });
+  },
+  { deep: true }
+);
+const buscarClientes = async () => {
+  if (cliente.value.nombre.length < 2) {
+    clientesSugeridos.value = [];
+    mostrarSugerenciasCliente.value = false;
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from('clientes')
+    .select('id, nombre, telefono, dni')
+    .ilike('nombre', `${cliente.value.nombre}%`)
+    .limit(5);
+
+  if (error) {
+    console.error('Error buscando clientes:', error);
+    clientesSugeridos.value = [];
+    mostrarSugerenciasCliente.value = false;
+  } else {
+    clientesSugeridos.value = data;
+    mostrarSugerenciasCliente.value = data.length > 0;
+  }
+};
+
+const seleccionarCliente = (c) => {
+  cliente.value.id = c.id;  // Opcional: para luego usar id
+  cliente.value.nombre = c.nombre;
+  cliente.value.telefono = c.telefono || '';
+  cliente.value.dni = c.dni || '';
+  mostrarSugerenciasCliente.value = false;
+};
+
+// Mapea tallas y colores disponibles para cada producto con variantes
+const obtenerTallasYColores = (index) => {
+  const producto = productos.value[index];
+
+  if (!producto || !producto.producto_id) {
+    return { tallas: [], colores: [] }; // prevenir error
+  }
+
+  const variantesFiltradas = variantes.value.filter(
+    (v) => v.producto_id === producto.producto_id
+  );
+
+  const tallas = [...new Set(variantesFiltradas.map((v) => v.talla))];
+  const colores = [...new Set(variantesFiltradas.map((v) => v.color))];
+
+  return { tallas, colores };
+};
+const obtenerColoresPorTalla = (index) => {
+  const p = productos.value[index];
+
+  if (!p || !p.producto_id || !p.talla) return [];
+
+  const variantesFiltradas = variantes.value.filter(
+    (v) => v.producto_id === p.producto_id && v.talla === p.talla
+  );
+
+  const coloresUnicos = [...new Set(variantesFiltradas.map((v) => v.color))];
+
+  return coloresUnicos;
+};
 
 const obtenerStockDisponible = (producto_id) => {
   if (!producto_id) return 0;
@@ -197,12 +323,13 @@ const venta = ref({
 });
 
 const cliente = ref({
+  id: null,
   nombre: "",
   telefono: "",
   dni: "",
 });
 
-const productos = ref([
+productos.value = [
   {
     nombre: "",
     cantidad: 1,
@@ -210,8 +337,14 @@ const productos = ref([
     producto_id: null,
     sugerencias: [],
     mostrarSugerencias: false,
+    es_con_variante: false,
+    talla: "",
+    color: "",
+    variante_id: null,
+    variantes: [],
+    stockDisponible: null,
   },
-]);
+];
 
 const quitarProducto = (index) => {
   productos.value.splice(index, 1);
@@ -224,6 +357,29 @@ const calcularTotal = () => {
 };
 
 const guardarVenta = async () => {
+    let clienteId = null;
+
+  for (const item of productos.value) {
+    if (item.es_con_variante) {
+      const variante = variantes.value.find(
+        (v) =>
+          v.producto_id === item.producto_id &&
+          v.talla === item.talla &&
+          v.color === item.color
+      );
+
+      if (!variante) {
+        alert(
+          `No se encontró la variante de talla ${item.talla} y color ${item.color}`
+        );
+        return;
+      }
+
+      item.variante_id = variante.id;
+      item.precio = variante.precio_venta;
+    }
+  }
+
   console.log("Guardando venta...", {
     venta: venta.value,
     cliente: cliente.value,
@@ -235,17 +391,29 @@ const guardarVenta = async () => {
     return;
   }
 
-  if (
-    venta.value.metodo_pago === "fiado" &&
-    cliente.value.nombre.trim() === ""
-  ) {
-    alert("Debe ingresar el nombre del cliente fiado.");
+if (venta.value.metodo_pago === "fiado") {
+  const { data: clienteInsertado, error: errorCliente } = await supabase
+    .from("clientes")
+    .insert([
+      {
+        nombre: cliente.value.nombre,
+        telefono: cliente.value.telefono || null,
+        dni: cliente.value.dni || null,
+      },
+    ])
+    .select()
+    .single();
+
+  if (errorCliente) {
+    console.error("Error al registrar cliente:", errorCliente);
+    alert("Error al registrar cliente fiado.");
     return;
   }
 
-  const totalVenta = parseFloat(calcularTotal());
-  let clienteId = null;
+  clienteId = clienteInsertado.id;
+}
 
+  const totalVenta = parseFloat(calcularTotal());
   // Si es fiado, registrar cliente
   if (venta.value.metodo_pago === "fiado") {
     const { data: clienteInsertado, error: errorCliente } = await supabase
@@ -315,14 +483,34 @@ const guardarVenta = async () => {
       }
     }
   }
-
   // Validar stock antes de insertar detalles
-  for (const item of productos.value) {
+for (const item of productos.value) {
+  if (item.es_con_variante) {
+    const variante = variantes.value.find(
+      (v) =>
+        v.producto_id === item.producto_id &&
+        v.talla === item.talla &&
+        v.color === item.color
+    );
+
+    if (!variante) {
+      alert(`No se encontró la variante para el producto ${item.nombre}.`);
+      return;
+    }
+
+    if (item.cantidad > variante.stock) {
+      alert(
+        `No hay suficiente stock de la variante ${item.talla} / ${item.color} del producto "${item.nombre}". Stock disponible: ${variante.stock}, solicitado: ${item.cantidad}`
+      );
+      return;
+    }
+  } else {
     const producto = productosDB.value.find((p) => p.id === item.producto_id);
     if (!producto) {
       alert(`El producto con ID ${item.producto_id} no existe.`);
       return;
     }
+
     if (item.cantidad > producto.stock) {
       alert(
         `No hay suficiente stock de "${producto.nombre}". Stock disponible: ${producto.stock}, solicitado: ${item.cantidad}`
@@ -330,6 +518,7 @@ const guardarVenta = async () => {
       return;
     }
   }
+}
 
   // Insertar detalles de venta
   const detalles = productos.value.map((item) => ({
@@ -338,7 +527,9 @@ const guardarVenta = async () => {
     cantidad: Number(item.cantidad),
     precio_venta: Number(item.precio),
     subtotal: Number(item.cantidad) * Number(item.precio),
+    variante_id: item.variante_id || null,
   }));
+
   console.log(
     "PRODUCTOS ANTES DE INSERT:",
     JSON.stringify(productos.value, null, 2)
@@ -356,17 +547,33 @@ const guardarVenta = async () => {
 
   console.log("Venta registrada exitosamente.");
 
-  // Actualizar stock
+  // Actualizar stock según si es variante o no
   for (const item of productos.value) {
-    const { error: errorStock } = await supabase.rpc("restar_stock", {
-      pid: item.producto_id,
-      cantidad_restar: item.cantidad,
-    });
+    if (item.es_con_variante) {
+      const { error: errorStock } = await supabase.rpc(
+        "restar_stock_variante",
+        {
+          vid: item.variante_id,
+          cantidad_restar: item.cantidad,
+        }
+      );
 
-    if (errorStock) {
-      console.error("Error al actualizar stock:", errorStock);
-      alert("Ocurrió un error al actualizar el stock de productos.");
-      return;
+      if (errorStock) {
+        console.error("Error al actualizar stock de variante:", errorStock);
+        alert("Error al actualizar stock de una variante.");
+        return;
+      }
+    } else {
+      const { error: errorStock } = await supabase.rpc("restar_stock", {
+        pid: item.producto_id,
+        cantidad_restar: item.cantidad,
+      });
+
+      if (errorStock) {
+        console.error("Error al actualizar stock:", errorStock);
+        alert("Error al actualizar stock del producto.");
+        return;
+      }
     }
   }
   alert("Venta registrada correctamente ✅");
@@ -385,6 +592,12 @@ const guardarVenta = async () => {
       producto_id: null,
       sugerencias: [],
       mostrarSugerencias: false,
+      es_con_variante: false,
+      talla: "",
+      color: "",
+      variante_id: null,
+      variantes: [],
+      stockDisponible: null,
     },
   ];
 };
@@ -392,12 +605,23 @@ const guardarVenta = async () => {
 onMounted(async () => {
   const { data, error } = await supabase
     .from("productos")
-    .select("id, nombre, precio_venta, stock");
+    .select("id, nombre, precio_venta, stock, es_con_variante");
 
   if (error) {
     console.error("Error al cargar productos:", error);
   } else {
     productosDB.value = data;
+  }
+
+  // También carga las variantes
+  const { data: variantesData, error: errorVar } = await supabase
+    .from("variantes_producto")
+    .select("id, producto_id, talla, color, stock, precio_venta");
+
+  if (errorVar) {
+    console.error("Error al cargar variantes:", errorVar);
+  } else {
+    variantes.value = variantesData;
   }
 });
 
@@ -413,11 +637,37 @@ const filtrarSugerencias = async (index) => {
   productos.value[index].mostrarSugerencias = true;
 };
 
-const seleccionarProducto = (index, sugerencia) => {
+const seleccionarProducto = async (index, sugerencia) => {
   productos.value[index].nombre = sugerencia.nombre;
   productos.value[index].precio = sugerencia.precio_venta;
   productos.value[index].producto_id = sugerencia.id;
   productos.value[index].mostrarSugerencias = false;
+
+  const p = productosDB.value.find((prod) => prod.id === sugerencia.id);
+  productos.value[index].es_con_variante = p?.es_con_variante ?? false;
+
+  // ✅ Cargar variantes si es producto con variante
+  if (productos.value[index].es_con_variante) {
+    const { data: variantes, error } = await supabase
+      .from("variantes_producto")
+      .select()
+      .eq("producto_id", sugerencia.id);
+
+    if (error) {
+      console.error("Error cargando variantes:", error);
+      productos.value[index].variantes = [];
+    } else {
+      productos.value[index].variantes = variantes;
+    }
+
+    // Limpiar selección anterior
+    productos.value[index].talla = "";
+    productos.value[index].color = "";
+  } else {
+    productos.value[index].variantes = [];
+    productos.value[index].talla = "";
+    productos.value[index].color = "";
+  }
 };
 
 const ocultarSugerencias = (index) => {
@@ -434,6 +684,12 @@ const agregarProducto = () => {
     producto_id: null,
     sugerencias: [],
     mostrarSugerencias: false,
+    es_con_variante: false,
+    talla: "",
+    color: "",
+    variante_id: null,
+    variantes: [], // también si estás usando variantes internas por producto
+    stockDisponible: null,
   });
 };
 </script>

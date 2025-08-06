@@ -9,6 +9,8 @@ import VentaView from '../views/VentaView.vue'
 import VentasView from '../views/VentasView.vue'
 import GastoView from '../views/GastoView.vue'
 import ReportesView from '../views/ReportesView.vue'
+import VariantesView from '../views/VariantesView.vue'
+import ClientesView from '../views/ClientesView.vue'
 
 // Temporal: una vista de inicio vacía
 const DashboardHome = { template: '<div class="p-4 text-white">Bienvenido al dashboard 👋</div>' }
@@ -25,7 +27,9 @@ const routes = [
       { path: 'venta', name: 'venta', component: VentaView },
       { path: 'ventas', name: 'ventas', component: VentasView },
       { path: 'gasto', name: 'gasto', component: GastoView },
-      { path: 'reportes', name: 'reportes', component: ReportesView } 
+      { path: '/productos/:id/variantes', name: 'VariantesView', component: VariantesView },
+      { path: 'reportes', name: 'reportes', component: ReportesView },
+      { path: 'clientes', name: 'Clientes', component: ClientesView } 
     ]
   }
 ]

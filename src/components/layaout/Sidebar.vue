@@ -42,12 +42,13 @@ const menuItems = [
   { name: 'Productos', to: '/productos', icon: 'fas fa-box' },
   { name: 'Ventas', to: '/ventas', icon: 'fas fa-file-invoice-dollar' },
   { name: 'Reportes', to: '/reportes', icon: 'fas fa-chart-line' },
+  { name: 'Clientes', to: '/clientes', icon: 'fas fa-users' },
   { name: 'Configuraciones', to: '/configuraciones', icon: 'fas fa-cogs' } // NUEVO
 ]
 
 </script>
 
-<style scoped>
+<style scoped>    
 .sidebar {
   width: 250px;
   height: 100vh;

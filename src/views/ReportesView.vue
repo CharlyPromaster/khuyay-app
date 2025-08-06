@@ -58,6 +58,37 @@
           <p class="text-xl">S/ {{ utilidad.toFixed(2) }}</p>
         </div>
       </div>
+      <div class="mt-8">
+  <h3 class="text-xl font-semibold mb-2">Productos más vendidos</h3>
+  <table class="min-w-full text-sm border rounded shadow bg-white">
+    <thead class="bg-purple-100 text-left">
+      <tr>
+        <th class="p-3">Producto</th>
+        <th class="p-3">Cantidad Vendida</th>
+        <th class="p-3">Monto Total (S/)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr v-for="prod in productosMasVendidos" :key="prod.producto_id" class="border-b">
+        <td class="p-3">{{ prod.nombre }}</td>
+        <td class="p-3">{{ prod.cantidad_total }}</td>
+        <td class="p-3">{{ prod.monto_total.toFixed(2) }}</td>
+      </tr>
+      <tr v-if="productosMasVendidos.length === 0">
+        <td colspan="3" class="text-center p-4 text-gray-500">No hay datos</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="mt-8">
+  <h3 class="text-xl font-semibold mb-2">Categoría más vendida</h3>
+  <div v-if="categoriaMasVendida" class="bg-purple-100 text-purple-800 rounded-xl p-4 font-semibold">
+    {{ categoriaMasVendida.nombre }} — Cantidad: {{ categoriaMasVendida.cantidad_total }} — Monto: S/ {{ categoriaMasVendida.monto_total.toFixed(2) }}
+  </div>
+  <div v-else class="text-gray-500">No hay datos</div>
+</div>
+
     </div>
         <!-- Mensaje extra -->
     <div v-if="utilidad < 0" class="text-red-700 bg-red-100 border border-red-300 rounded-xl p-4 text-sm">
@@ -82,6 +113,8 @@ const meses = [
   "Julio", "Agosto", "Setiembre", "Octubre", "Noviembre", "Diciembre"
 ];
 const años = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i);
+const productosMasVendidos = ref([]);
+const categoriaMasVendida = ref(null);
 
 const mes = ref(new Date().getMonth() + 1);
 const anio = ref(new Date().getFullYear());
@@ -128,6 +161,42 @@ const cargarDatos = async () => {
   resumen.value.ventas = v.data?.reduce((sum, item) => sum + item.total, 0) || 0;
   resumen.value.compras = c.data?.reduce((sum, item) => sum + item.total, 0) || 0;
   resumen.value.gastos = g.data?.reduce((sum, item) => sum + item.monto, 0) || 0;
+   await Promise.all([cargarProductosMasVendidos(), cargarCategoriaMasVendida()]);
+};
+
+const cargarProductosMasVendidos = async () => {
+  const inicio = `${anio.value}-${String(mes.value).padStart(2, "0")}-01`;
+  const fin = new Date(anio.value, mes.value, 0).toISOString().split("T")[0];
+
+  // Consulta detalles_venta + productos para agrupar por producto y sumar cantidad
+  const { data, error } = await supabase.rpc("productos_mas_vendidos", {
+    fecha_inicio: inicio,
+    fecha_fin: fin,
+  });
+
+  if (error) {
+    console.error("Error cargando productos más vendidos:", error);
+    productosMasVendidos.value = [];
+  } else {
+    productosMasVendidos.value = data;
+  }
+};
+
+const cargarCategoriaMasVendida = async () => {
+  const inicio = `${anio.value}-${String(mes.value).padStart(2, "0")}-01`;
+  const fin = new Date(anio.value, mes.value, 0).toISOString().split("T")[0];
+
+  const { data, error } = await supabase.rpc("categoria_mas_vendida", {
+    fecha_inicio: inicio,
+    fecha_fin: fin,
+  });
+
+  if (error) {
+    console.error("Error cargando categoría más vendida:", error);
+    categoriaMasVendida.value = null;
+  } else {
+    categoriaMasVendida.value = data?.[0] || null;
+  }
 };
 
 const exportarPDF = () => {

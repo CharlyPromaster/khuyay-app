@@ -4,6 +4,25 @@
       <i class="fas fa-file-invoice-dollar text-pink-500"></i>
       Historial de Ventas
     </h2>
+<div class="mb-4">
+  <label for="filtroEstado" class="block text-sm font-medium text-gray-700 mb-1">Filtrar por estado:</label>
+  <select v-model="filtroEstado" id="filtroEstado" class="border rounded p-2 w-48 text-sm">
+    <option value="">Todos</option>
+    <option value="pagado">Pagado</option>
+    <option value="pendiente">Pendiente</option>
+  </select>
+</div>
+<div class="mb-4">
+  <label for="busquedaCliente" class="block text-sm font-medium text-gray-700 mb-1">Buscar cliente:</label>
+  <input
+    v-model="busquedaCliente"
+    id="busquedaCliente"
+    type="text"
+    placeholder="Escribe el nombre del cliente..."
+    class="border rounded p-2 w-64 text-sm"
+  />
+</div>
+
 
     <div class="overflow-x-auto rounded-xl shadow border border-gray-200">
       <table class="min-w-full divide-y divide-gray-200">
@@ -25,7 +44,7 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100 bg-white">
-          <tr v-for="v in ventas" :key="v.id">
+          <tr v-for="v in ventasFiltradas" :key="v.id">
             <td class="px-4 py-3">{{ formatearFecha(v.fecha) }}</td>
             <td class="px-4 py-3">{{ v.nombre_cliente || "—" }}</td>
             <td class="px-4 py-3 capitalize">
@@ -99,9 +118,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { supabase } from "../supabase";
 import DetalleVentaModal from "../components/DetalleVentaModal.vue";
+
+const filtroEstado = ref("");
+const busquedaCliente = ref("");
 
 const formatearFecha = (fecha) => {
   const f = new Date(fecha);
@@ -111,6 +133,16 @@ const formatearFecha = (fecha) => {
     year: "numeric",
   });
 };
+const ventasFiltradas = computed(() => {
+  return ventas.value.filter((v) => {
+    const coincideEstado = !filtroEstado.value || v.estado === filtroEstado.value;
+    const coincideNombre =
+      !busquedaCliente.value ||
+      (v.nombre_cliente || "").toLowerCase().includes(busquedaCliente.value.toLowerCase());
+
+    return coincideEstado && coincideNombre;
+  });
+});
 
 const mostrarModal = ref(false);
 const ventaSeleccionada = ref(null);
@@ -121,8 +153,6 @@ const verDetalle = (venta) => {
 };
 const ventas = ref([]);
 // const mostrarModal = ref(false)
-// const ventaSeleccionada = ref(null)
-
 const cargarVentas = async () => {
   const { data, error } = await supabase.from("ventas").select(`
       id,
@@ -186,7 +216,7 @@ const eliminarVenta = async (venta) => {
 
   // Primero elimina los detalles de la venta para evitar conflictos de clave foránea
   const { error: detalleError } = await supabase
-    .from("detalles_venta")
+    .from("detalle_ventas")
     .delete()
     .eq("venta_id", venta.id);
 
