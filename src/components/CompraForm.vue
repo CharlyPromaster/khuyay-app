@@ -213,10 +213,6 @@ const quitarProducto = (index) => {
 // Calcular total
 // Calcular total
 const totalCalculado = computed(() => {
-  console.log(
-    "Productos actuales:",
-    JSON.stringify(productosComprados.value, null, 2)
-  ); // 👈 Esto
   return productosComprados.value.reduce((total, prod) => {
     if (prod.es_con_variante && Array.isArray(prod.variantes)) {
       return (
